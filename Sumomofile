@@ -1,0 +1,84 @@
+key = hidden_value ENV["CLOUDFLARE_KEY"]
+email = hidden_value ENV["CLOUDFLARE_EMAIL"]
+certificate = hidden_value "arn:aws:acm:us-east-1:439845761459:certificate/bfe56163-a143-4467-89aa-4d9ddbbfd0a2"
+
+api = make_api "test2.astrobunny.net",
+    name: "TestGenAPI",
+    cert: certificate,
+    dns: cloudflare_dns(key: key, email: email) do
+
+    SCRIPT <<-SCRIPT
+        const Sequelize = require('sequelize');
+        const uuid = require('uuid/v4');
+        const db = new Sequelize('database', 'username', 'password', {
+            host: 'localhost',
+            dialect: 'sqlite',
+            storage: '/media/sf_rize/test.sqlite',
+            operatorsAliases: false
+        });
+
+        const Table = db.define('table', {
+            id: {
+                allowNull: false,
+                primaryKey: true,
+                type: Sequelize.UUID,
+                defaultValue: uuid()
+            },
+            name: Sequelize.STRING
+        });
+
+        const Column = db.define('column', {
+            id: {
+                allowNull: false,
+                primaryKey: true,
+                type: Sequelize.UUID,
+                defaultValue: uuid()
+            },
+            table: Sequelize.UUID,
+            type: Sequelize.ENUM,
+            name: Sequelize.STRING
+        });
+
+        const Data = db.define('data', {
+            id: {
+                allowNull: false,
+                primaryKey: true,
+                type: Sequelize.UUID,
+                defaultValue: uuid()
+            },
+            rowid: Sequelize.UUID,
+            column: Sequelize.UUID,
+            intvalue: Sequelize.INTEGER,
+            strvalue: Sequelize.STRING,
+            deleted: Sequelize.BOOLEAN
+        });
+
+        db.sync()
+          .then(() => Data.create({
+            username: 'janedoe',
+            birthday: new Date(1980, 6, 20)
+          }))
+          .then(jane => {
+            console.log(jane.toJSON());
+          });
+    SCRIPT
+
+    GET "/tables/:pageid", :pageid, <<-SCRIPT
+        respond_with ({message: pageid, params: params});
+    SCRIPT
+
+    POST "/tables/:tablename", :pageid, <<-SCRIPT
+        respond_with ({message: pageid, params: params});
+    SCRIPT
+
+    GET "/best_girl", <<-SCRIPT
+        respond_with ({best_girl_is: "Ruby"});
+    SCRIPT
+
+    GET "/*", <<-SCRIPT
+        respond_with ({message: "Hello!", request_event: event});
+    SCRIPT
+
+end
+
+output "APIURL", api
